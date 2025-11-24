@@ -95,8 +95,15 @@ void MainWindow::updateOrdersList() {
 
     QTableWidget* table = (m_role == User::Client) ? ui->tableMyOrders : ui->tableAllOrders;
     table->setRowCount(0);
-    table->setColumnCount(5);
-    table->setHorizontalHeaderLabels({"ID", "Клиент", "Устройство", "Статус", "Дата"});
+
+    if (m_role == User::Client) {
+        table->setColumnCount(3);
+        table->setHorizontalHeaderLabels({"Устройство", "Статус", "Дата"});
+    } else {
+        table->setColumnCount(5);
+        table->setHorizontalHeaderLabels({"ID", "Клиент", "Устройство", "Статус", "Дата"});
+    }
+
     table->horizontalHeader()->setStretchLastSection(true);
 
     int row = 0;
@@ -105,13 +112,25 @@ void MainWindow::updateOrdersList() {
             continue;
 
         table->insertRow(row);
-        table->setItem(row, 0, new QTableWidgetItem(order.id()));
-        table->setItem(row, 1, new QTableWidgetItem(order.clientId()));
-        table->setItem(row, 2, new QTableWidgetItem(
+
+        // Создаём ячейку, которую будем отображать
+        QTableWidgetItem* deviceItem = new QTableWidgetItem(
             QString("%1 (%2)").arg(order.device().typeName()).arg(order.device().model())
-        ));
-        table->setItem(row, 3, new QTableWidgetItem(order.currentStatus()));
-        table->setItem(row, 4, new QTableWidgetItem(order.createdAt().toString("dd.MM.yyyy")));
+            );
+        // Сохраняем ID заказа в этой ячейке (или в любой другой)
+        deviceItem->setData(Qt::UserRole, order.id()); // ← ВАЖНО!
+
+        if (m_role == User::Client) {
+            table->setItem(row, 0, deviceItem);
+            table->setItem(row, 1, new QTableWidgetItem(order.currentStatus()));
+            table->setItem(row, 2, new QTableWidgetItem(order.createdAt().toString("dd.MM.yyyy")));
+        } else {
+            table->setItem(row, 0, new QTableWidgetItem(order.id()));
+            table->setItem(row, 1, new QTableWidgetItem(order.clientId()));
+            table->setItem(row, 2, deviceItem);
+            table->setItem(row, 3, new QTableWidgetItem(order.currentStatus()));
+            table->setItem(row, 4, new QTableWidgetItem(order.createdAt().toString("dd.MM.yyyy")));
+        }
         row++;
     }
 }
@@ -322,10 +341,21 @@ void MainWindow::generateInvoiceForSelectedOrder(QTableWidget* table)
     int row = selection.first().topRow();
     if (row < 0 || row >= table->rowCount()) return;
 
-    QTableWidgetItem* item = table->item(row, 0);
-    if (!item) return;
+    QTableWidgetItem* deviceItem = nullptr;
+    if (m_role == User::Client) {
+        deviceItem = table->item(row, 0);
+    } else {
+        deviceItem = table->item(row, 2);
+    }
 
-    QString orderId = item->text();
+    if (!deviceItem) return;
+
+    QString orderId = deviceItem->data(Qt::UserRole).toString();
+    if (orderId.isEmpty()) {
+        qDebug() << "ID заказа не найден!";
+        return;
+    }
+
     RepairOrder* selectedOrder = nullptr;
     for (auto& order : DataStorage::instance().orders()) {
         if (order.id() == orderId) {
