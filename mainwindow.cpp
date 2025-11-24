@@ -605,3 +605,8 @@ void MainWindow::on_btnAssignParts_clicked() {
         QMessageBox::information(nullptr, "Успех", "Запчасти назначены на заказ");
     }
 }
+
+void MainWindow::on_btnLogout_clicked() {
+    emit logoutRequested();
+    this->close();
+}

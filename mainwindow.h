@@ -21,11 +21,15 @@ public:
     explicit MainWindow(User::Role role, const QString& username, QWidget *parent = nullptr);
     ~MainWindow();
 
+signals:
+    void logoutRequested();
+
 private slots:
     void on_btnChangeStatus_clicked();
     void on_btnNewOrder_clicked();
     void on_actionExportHistory_triggered();
     void on_btnInvoice_clicked();
+    void on_btnLogout_clicked();
     void on_btnExportMyOrders_clicked();
     void on_btnExportAllOrders_clicked();
     void on_btnAddPart_clicked();
