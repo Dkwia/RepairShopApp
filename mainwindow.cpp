@@ -4,6 +4,8 @@
 #include <QComboBox>
 #include <QDialog>
 #include <QFormLayout>
+#include <QComboBox>
+#include <QLineEdit>
 #include <QPushButton>
 #include <QHBoxLayout>
 #include "mainwindow.h"
@@ -86,6 +88,7 @@ MainWindow::MainWindow(User::Role role, const QString& username, QWidget *parent
         priceItem->setData(Qt::EditRole, p.price());
         partsTable->setItem(i, 3, priceItem);
     }
+
     ui->tableParts->setSortingEnabled(true);
     ui->tableParts->setAlternatingRowColors(true);
 
@@ -234,37 +237,73 @@ void MainWindow::on_btnNewOrder_clicked() {
 
     QLineEdit clientEdit(m_username);
     clientEdit.setReadOnly(true);
-    QLineEdit deviceModel;
+    layout.addRow("Клиент:", &clientEdit);
+
     QComboBox deviceType;
     deviceType.addItems({"Ноутбук", "Телефон", "Планшет"});
-    QLineEdit issue;
-
-    layout.addRow("Клиент:", &clientEdit);
     layout.addRow("Тип устройства:", &deviceType);
-    layout.addRow("Модель:", &deviceModel);
+
+    QComboBox* modelCombo = new QComboBox();
+    modelCombo->setEditable(true);
+    modelCombo->setPlaceholderText("Выберите или введите модель");
+
+    auto updateModelList = [&](int deviceIndex) {
+        modelCombo->clear();
+        if (deviceIndex == Device::Laptop) {
+            modelCombo->addItems({"HP Pavilion 15", "Dell Latitude 5420", "MacBook Air M2", "Lenovo ThinkPad X1"});
+        } else if (deviceIndex == Device::Phone) {
+            modelCombo->addItems({"iPhone 13", "Samsung Galaxy S21", "Xiaomi Redmi Note 12", "Google Pixel 6"});
+        } else if (deviceIndex == Device::Tablet) {
+            modelCombo->addItems({"iPad Pro 11\"", "Samsung Galaxy Tab S8", "Huawei MatePad Pro", "Amazon Fire HD 10"});
+        }
+        modelCombo->setCurrentText("");
+    };
+
+    updateModelList(Device::Laptop);
+
+    QObject::connect(&deviceType, QOverload<int>::of(&QComboBox::currentIndexChanged),
+                     [&](int index) {
+                         updateModelList(index);
+                         modelCombo->setCurrentText("");
+                     });
+
+    layout.addRow("Модель:", modelCombo);
+
+    QLineEdit issue;
+    issue.setPlaceholderText("Опишите неисправность");
     layout.addRow("Неисправность:", &issue);
 
-    QPushButton ok("Создать");
-    QPushButton cancel("Отмена");
-    layout.addRow(&ok, &cancel);
+    QPushButton okBtn("Создать");
+    QPushButton cancelBtn("Отмена");
+    layout.addRow(&okBtn, &cancelBtn);
 
-    QObject::connect(&cancel, &QPushButton::clicked, &dialog, &QDialog::reject);
-    QObject::connect(&ok, &QPushButton::clicked, &dialog, &QDialog::accept);
+    QObject::connect(&cancelBtn, &QPushButton::clicked, &dialog, &QDialog::reject);
+    QObject::connect(&okBtn, &QPushButton::clicked, &dialog, &QDialog::accept);
 
     if (dialog.exec() != QDialog::Accepted) return;
 
+    QString model = modelCombo->currentText().trimmed();
+    if (model.isEmpty()) {
+        QMessageBox::warning(nullptr, "Ошибка", "Укажите модель устройства");
+        return;
+    }
+
+    if (issue.text().trimmed().isEmpty()) {
+        QMessageBox::warning(nullptr, "Ошибка", "Опишите неисправность");
+        return;
+    }
+
     auto& orders = DataStorage::instance().orders();
     QString id = "ORD-" + QString::number(orders.size() + 1);
-
     Device::Type type = static_cast<Device::Type>(deviceType.currentIndex());
-    Device device(type, deviceModel.text());
+    Device device(type, model);
 
-    RepairOrder order(id, m_username, device, issue.text());
+    RepairOrder order(id, m_username, device, issue.text().trimmed());
     orders.append(order);
     DataStorage::instance().save();
 
     updateOrdersList();
-    QMessageBox::information(nullptr, "Успех", "Заказ оформлен: " + id);
+    QMessageBox::information(nullptr, "Успех", "Заказ успешно оформлен:\n" + id);
 }
 
 void MainWindow::on_btnAddPart_clicked() {
@@ -645,3 +684,4 @@ void MainWindow::on_btnLogout_clicked() {
     emit logoutRequested();
     this->close();
 }
+
