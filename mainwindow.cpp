@@ -155,8 +155,17 @@ void MainWindow::updateOrdersList() {
 
         if (m_role == User::Client) {
             table->setItem(row, 0, deviceItem);
-            table->setItem(row, 1, new QTableWidgetItem(order.currentStatus()));
-
+            QString statusWithEmoji = order.currentStatus();
+            if (order.currentStatus() == "Принят") {
+                statusWithEmoji = "📥 Принят";
+            } else if (order.currentStatus() == "В работе") {
+                statusWithEmoji = "🔧 В работе";
+            } else if (order.currentStatus() == "Готов") {
+                statusWithEmoji = "✅ Готов";
+            } else if (order.currentStatus() == "Выдан") {
+                statusWithEmoji = "🤝 Выдан";
+            }
+            table->setItem(row, 1, new QTableWidgetItem(statusWithEmoji));
             QTableWidgetItem* dateItem = new QTableWidgetItem(order.createdAt().toString("dd.MM.yyyy"));
             dateItem->setData(Qt::EditRole, order.createdAt().toString("yyyy-MM-dd"));
             table->setItem(row, 2, dateItem);
@@ -164,8 +173,17 @@ void MainWindow::updateOrdersList() {
             table->setItem(row, 0, new QTableWidgetItem(order.id()));
             table->setItem(row, 1, new QTableWidgetItem(order.clientId()));
             table->setItem(row, 2, deviceItem);
-            table->setItem(row, 3, new QTableWidgetItem(order.currentStatus()));
-
+            QString statusWithEmoji = order.currentStatus();
+            if (order.currentStatus() == "Принят") {
+                statusWithEmoji = "📥 Принят";
+            } else if (order.currentStatus() == "В работе") {
+                statusWithEmoji = "🔧 В работе";
+            } else if (order.currentStatus() == "Готов") {
+                statusWithEmoji = "✅ Готов";
+            } else if (order.currentStatus() == "Выдан") {
+                statusWithEmoji = "🤝 Выдан";
+            }
+            table->setItem(row, 3, new QTableWidgetItem(statusWithEmoji));
             QTableWidgetItem* dateItem = new QTableWidgetItem(order.createdAt().toString("dd.MM.yyyy"));
             dateItem->setData(Qt::EditRole, order.createdAt().toString("yyyy-MM-dd"));
             table->setItem(row, 4, dateItem);
@@ -544,13 +562,23 @@ void MainWindow::generateInvoiceForSelectedOrder(QTableWidget* table)
         </div>
     </div>
 )";
+    QString statusWithEmoji = selectedOrder->currentStatus();
+    if (statusWithEmoji == "Принят") {
+        statusWithEmoji = "📥 Принят";
+    } else if (statusWithEmoji == "В работе") {
+        statusWithEmoji = "🔧 В работе";
+    } else if (statusWithEmoji == "Готов") {
+        statusWithEmoji = "✅ Готов";
+    } else if (statusWithEmoji == "Выдан") {
+        statusWithEmoji = "🤝 Выдан";
+    }
     QString invoice = invoiceTemplate
                           .arg(selectedOrder->createdAt().toString("dd.MM.yyyy"))
                           .arg(selectedOrder->id())
                           .arg(selectedOrder->clientId())
                           .arg(selectedOrder->device().typeName())
                           .arg(selectedOrder->device().model())
-                          .arg(selectedOrder->currentStatus())
+                          .arg(statusWithEmoji)
                           .arg(selectedOrder->createdAt().toString("dd.MM.yyyy HH:mm"))
                           .arg(partsHtml)
                           .arg(QString::number(total, 'f', 2))
