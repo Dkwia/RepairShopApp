@@ -25,6 +25,7 @@ signals:
     void logoutRequested();
 
 private slots:
+    void onOrderDoubleClicked(const QModelIndex &index);
     void on_btnChangeStatus_clicked();
     void on_btnNewOrder_clicked();
     void on_actionExportHistory_triggered();

@@ -91,7 +91,8 @@ MainWindow::MainWindow(User::Role role, const QString& username, QWidget *parent
 
     ui->tableParts->setSortingEnabled(true);
     ui->tableParts->setAlternatingRowColors(true);
-
+    connect(ui->tableMyOrders, &QTableWidget::doubleClicked, this, &MainWindow::onOrderDoubleClicked);
+    connect(ui->tableAllOrders, &QTableWidget::doubleClicked, this, &MainWindow::onOrderDoubleClicked);
 }
 
 MainWindow::~MainWindow() {
@@ -685,3 +686,66 @@ void MainWindow::on_btnLogout_clicked() {
     this->close();
 }
 
+void MainWindow::onOrderDoubleClicked(const QModelIndex &index) {
+    QTableWidget* table = qobject_cast<QTableWidget*>(sender());
+    if (!table) return;
+
+    int row = index.row();
+    if (row < 0 || row >= table->rowCount()) return;
+
+    QTableWidgetItem* deviceItem = nullptr;
+    if (m_role == User::Client) {
+        deviceItem = table->item(row, 0);
+    } else {
+        deviceItem = table->item(row, 2);
+    }
+
+    if (!deviceItem) return;
+
+    QString orderId = deviceItem->data(Qt::UserRole).toString();
+    if (orderId.isEmpty()) return;
+
+    RepairOrder* order = nullptr;
+    for (auto& o : DataStorage::instance().orders()) {
+        if (o.id() == orderId) {
+            order = &o;
+            break;
+        }
+    }
+
+    if (!order) return;
+
+    QString details = QString(
+                          "<b>Детали заказа</b><br><br>"
+                          "<b>ID заказа:</b> %1<br>"
+                          "<b>Клиент:</b> %2<br>"
+                          "<b>Устройство:</b> %3 (%4)<br>"
+                          "<b>Статус:</b> %5<br>"
+                          "<b>Дата создания:</b> %6<br><br>"
+                          "<b>Причина неисправности:</b><br>"
+                          "<i>%7</i>"
+                          )
+                          .arg(order->id())
+                          .arg(order->clientId())
+                          .arg(order->device().typeName())
+                          .arg(order->device().model())
+                          .arg(order->currentStatus())
+                          .arg(order->createdAt().toString("dd.MM.yyyy HH:mm"))
+                          .arg(order->issue().isEmpty() ? "Не указана" : order->issue());
+
+    QDialog dialog(this);
+    dialog.setWindowTitle("Детали заказа " + orderId);
+    dialog.resize(500, 300);
+
+    QVBoxLayout* layout = new QVBoxLayout(&dialog);
+    QTextEdit* textEdit = new QTextEdit();
+    textEdit->setReadOnly(true);
+    textEdit->setHtml(details);
+    layout->addWidget(textEdit);
+
+    QPushButton* closeBtn = new QPushButton("Закрыть");
+    layout->addWidget(closeBtn);
+    connect(closeBtn, &QPushButton::clicked, &dialog, &QDialog::accept);
+
+    dialog.exec();
+}
