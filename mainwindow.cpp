@@ -87,6 +87,8 @@ MainWindow::MainWindow(User::Role role, const QString& username, QWidget *parent
         partsTable->setItem(i, 3, priceItem);
     }
     ui->tableParts->setSortingEnabled(true);
+    ui->tableParts->setAlternatingRowColors(true);
+
 }
 
 MainWindow::~MainWindow() {
@@ -165,6 +167,7 @@ void MainWindow::updateOrdersList() {
     }
     table->setSortingEnabled(true);
     table->horizontalHeader()->setStretchLastSection(true);
+    table->setAlternatingRowColors(true);
 }
 
 void MainWindow::on_btnChangeStatus_clicked() {
