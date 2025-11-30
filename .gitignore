@@ -1,4 +1,4 @@
 .qtcreator/
 build/
 .DS_Store
-
+*.csv

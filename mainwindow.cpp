@@ -72,9 +72,14 @@ MainWindow::MainWindow(User::Role role, const QString& username, QWidget *parent
         const Part& p = parts[i];
         partsTable->setItem(i, 0, new QTableWidgetItem(p.article()));
         partsTable->setItem(i, 1, new QTableWidgetItem(p.name()));
-        partsTable->setItem(i, 2, new QTableWidgetItem(QString::number(p.quantity())));
-        partsTable->setItem(i, 3, new QTableWidgetItem(QString::number(p.price(), 'f', 2))); 
+        QTableWidgetItem* qtyItem = new QTableWidgetItem(QString::number(p.quantity()));
+        qtyItem->setData(Qt::EditRole, p.quantity());
+        partsTable->setItem(i, 2, qtyItem);
+        QTableWidgetItem* priceItem = new QTableWidgetItem(QString::number(p.price(), 'f', 2));
+        priceItem->setData(Qt::EditRole, p.price());
+        partsTable->setItem(i, 3, priceItem);
     }
+    ui->tableParts->setSortingEnabled(true);
 }
 
 MainWindow::~MainWindow() {
@@ -95,6 +100,7 @@ void MainWindow::updateOrdersList() {
 
     QTableWidget* table = (m_role == User::Client) ? ui->tableMyOrders : ui->tableAllOrders;
     table->setRowCount(0);
+    table->setSortingEnabled(false);
 
     if (m_role == User::Client) {
         table->setColumnCount(3);
@@ -104,8 +110,6 @@ void MainWindow::updateOrdersList() {
         table->setHorizontalHeaderLabels({"ID", "Клиент", "Устройство", "Статус", "Дата"});
     }
 
-    table->horizontalHeader()->setStretchLastSection(true);
-
     int row = 0;
     for (const auto& order : orders) {
         if (m_role == User::Client && order.clientId() != m_username)
@@ -113,26 +117,32 @@ void MainWindow::updateOrdersList() {
 
         table->insertRow(row);
 
-        // Создаём ячейку, которую будем отображать
         QTableWidgetItem* deviceItem = new QTableWidgetItem(
             QString("%1 (%2)").arg(order.device().typeName()).arg(order.device().model())
             );
-        // Сохраняем ID заказа в этой ячейке (или в любой другой)
-        deviceItem->setData(Qt::UserRole, order.id()); // ← ВАЖНО!
+        deviceItem->setData(Qt::UserRole, order.id());
 
         if (m_role == User::Client) {
             table->setItem(row, 0, deviceItem);
             table->setItem(row, 1, new QTableWidgetItem(order.currentStatus()));
-            table->setItem(row, 2, new QTableWidgetItem(order.createdAt().toString("dd.MM.yyyy")));
+
+            QTableWidgetItem* dateItem = new QTableWidgetItem(order.createdAt().toString("dd.MM.yyyy"));
+            dateItem->setData(Qt::EditRole, order.createdAt().toString("yyyy-MM-dd"));
+            table->setItem(row, 2, dateItem);
         } else {
             table->setItem(row, 0, new QTableWidgetItem(order.id()));
             table->setItem(row, 1, new QTableWidgetItem(order.clientId()));
             table->setItem(row, 2, deviceItem);
             table->setItem(row, 3, new QTableWidgetItem(order.currentStatus()));
-            table->setItem(row, 4, new QTableWidgetItem(order.createdAt().toString("dd.MM.yyyy")));
+
+            QTableWidgetItem* dateItem = new QTableWidgetItem(order.createdAt().toString("dd.MM.yyyy"));
+            dateItem->setData(Qt::EditRole, order.createdAt().toString("yyyy-MM-dd"));
+            table->setItem(row, 4, dateItem);
         }
         row++;
     }
+    table->setSortingEnabled(true);
+    table->horizontalHeader()->setStretchLastSection(true);
 }
 
 void MainWindow::on_btnChangeStatus_clicked() {
