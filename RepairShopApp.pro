@@ -1,4 +1,4 @@
-QT += core widgets
+QT += core widgets printsupport
 CONFIG += c++17
 TARGET = RepairShopApp
 TEMPLATE = app

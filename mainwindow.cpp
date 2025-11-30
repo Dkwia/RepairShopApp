@@ -1,4 +1,6 @@
 #include <QTextStream>
+#include <QPainter>
+#include <QPageSize>
 #include <QDateTime>
 #include <QHBoxLayout>
 #include <QComboBox>
@@ -9,6 +11,7 @@
 #include <QPushButton>
 #include <QHBoxLayout>
 #include "mainwindow.h"
+#include <QPrinter>
 #include "statustracker.h"
 #include "ui_mainwindow.h"
 #include "datastorage.h"
@@ -440,18 +443,9 @@ void MainWindow::generateInvoiceForSelectedOrder(QTableWidget* table)
     }
     if (!selectedOrder) return;
 
-    QString invoice = "=== СЧЁТ НА РЕМОНТ ===\n";
-    invoice += QString("Заказ: %1\n").arg(selectedOrder->id());
-    invoice += QString("Клиент: %1\n").arg(selectedOrder->clientId());
-    invoice += QString("Устройство: %1 (%2)\n")
-                   .arg(selectedOrder->device().typeName())
-                   .arg(selectedOrder->device().model());
-    invoice += QString("Статус: %1\n").arg(selectedOrder->currentStatus());
-    invoice += QString("Дата: %1\n\n").arg(selectedOrder->createdAt().toString("dd.MM.yyyy"));
-
-    invoice += "Использованы запчасти:\n";
     double total = 0.0;
     const auto& stockParts = DataStorage::instance().parts();
+    QString partsHtml = "";
 
     for (const Part& used : selectedOrder->usedParts()) {
         double price = 0.0;
@@ -463,30 +457,157 @@ void MainWindow::generateInvoiceForSelectedOrder(QTableWidget* table)
         }
         double lineTotal = price * used.quantity();
         total += lineTotal;
-        invoice += QString("- %1 (x%2) — %3 ₽\n")
-                       .arg(used.name())
-                       .arg(used.quantity())
-                       .arg(lineTotal, 0, 'f', 2);
+        partsHtml += QString(
+                         "<tr style=\"background: #1e1e1e; color: #ffffff;\">"
+                         "<td style=\"padding: 8px; border: 1px solid #444; color: #ffffff;\">%1</td>"
+                         "<td style=\"padding: 8px; border: 1px solid #444; text-align: right; color: #ffffff;\">%2</td>"
+                         "<td style=\"padding: 8px; border: 1px solid #444; text-align: right; color: #ffffff;\">%3</td>"
+                         "<td style=\"padding: 8px; border: 1px solid #444; text-align: right; color: #ffffff;\">%4</td>"
+                         "</tr>"
+                         )
+                         .arg(used.name())
+                         .arg(used.quantity())
+                         .arg(QString::number(price, 'f', 2))
+                         .arg(QString::number(lineTotal, 'f', 2));
     }
 
-    invoice += "\n";
-    invoice += QString("ИТОГО: %1 ₽\n").arg(total, 0, 'f', 2);
-    invoice += "======================";
+    QString invoiceTemplate = R"(
+    <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto; background: #121212; color: #ffffff;">
+        <h2 style="text-align: center; font-size: 24px; margin-bottom: 5px; color: #ffffff;">Счёт на ремонт</h2>
+        <p style="text-align: center; font-size: 14px; color: #cccccc; margin: 5px 0;">
+            Дата: %1 | Номер заказа: %2
+        </p>
+
+        <div style="margin: 20px 0; padding: 15px; background: #1e1e1e; border: 1px solid #333; border-radius: 5px;">
+            <p><strong>Клиент:</strong> %3</p>
+            <p><strong>Устройство:</strong> %4 (%5)</p>
+            <p><strong>Статус:</strong> %6</p>
+            <p><strong>Дата создания:</strong> %7</p>
+        </div>
+
+        <h3 style="margin-top: 25px; font-size: 18px; border-bottom: 2px solid #ffffff; padding-bottom: 5px; color: #ffffff;">Использованные запчасти</h3>
+        <table style="width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 14px;">
+            <thead>
+                <tr style="background: #2d2d2d; text-align: left;">
+                    <th style="padding: 8px; border: 1px solid #444; color: #ffffff;">Наименование</th>
+                    <th style="padding: 8px; border: 1px solid #444; text-align: right; color: #ffffff;">Кол-во</th>
+                    <th style="padding: 8px; border: 1px solid #444; text-align: right; color: #ffffff;">Цена (₽)</th>
+                    <th style="padding: 8px; border: 1px solid #444; text-align: right; color: #ffffff;">Сумма (₽)</th>
+                </tr>
+            </thead>
+            <tbody>
+                %8
+            </tbody>
+        </table>
+
+        <!-- ИСПРАВЛЕНО: таблица итогов с заливкой -->
+        <div style="margin: 20px 0; padding: 15px; background: #1e1e1e; border: 1px solid #333; border-radius: 5px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <tr style="background: #1e1e1e;">
+                    <td style="padding: 8px; border: 1px solid #444; font-weight: bold; color: #ffffff;">Итого</td>
+                    <td style="padding: 8px; border: 1px solid #444; text-align: right; font-weight: bold; color: #ffffff;">%9</td>
+                </tr>
+                <tr style="background: #1e1e1e;">
+                    <td style="padding: 8px; border: 1px solid #444; color: #ffffff;">НДС (10%)</td>
+                    <td style="padding: 8px; border: 1px solid #444; text-align: right; color: #ffffff;">%10</td>
+                </tr>
+                <tr style="background: #2d2d2d;">
+                    <td style="padding: 8px; border: 1px solid #444; font-weight: bold; color: #ffffff;">Общая сумма</td>
+                    <td style="padding: 8px; border: 1px solid #444; text-align: right; font-weight: bold; color: #ffffff;">%11</td>
+                </tr>
+            </table>
+        </div>
+
+        <div style="margin: 20px 0; padding: 15px; background: #1e1e1e; border: 1px solid #333; border-radius: 5px;">
+            <h4 style="margin: 5px 0; font-size: 16px; font-weight: bold; color: #ffffff;">Оплата</h4>
+            <p style="margin: 5px 0; font-size: 14px; color: #ffffff;">
+                Оплатите счёт в течение 7 дней.<br>
+                <strong>Реквизиты:</strong><br>
+                Банк: Сбербанк<br>
+                Расчётный счёт: 40817810000000000000<br>
+                БИК: 044525225<br>
+                ИНН: 7701010101
+            </p>
+        </div>
+
+        <div style="margin: 20px 0; padding: 15px; background: #1e1e1e; border: 1px solid #333; border-radius: 5px;">
+            <h4 style="margin: 5px 0; font-size: 16px; font-weight: bold; color: #ffffff;">Условия</h4>
+            <p style="margin: 5px 0; font-size: 14px; color: #ffffff;">
+                • Гарантия 30 дней на все работы.<br>
+                • Повторный ремонт по гарантии — бесплатно.<br>
+                • Неисправности из-за неправильного использования — не гарантийные.
+            </p>
+        </div>
+
+        <div style="margin-top: 20px; font-size: 12px; color: #888; text-align: center;">
+            Счёт сформирован автоматически. Подпись не требуется.
+        </div>
+    </div>
+)";
+    QString invoice = invoiceTemplate
+                          .arg(selectedOrder->createdAt().toString("dd.MM.yyyy"))
+                          .arg(selectedOrder->id())
+                          .arg(selectedOrder->clientId())
+                          .arg(selectedOrder->device().typeName())
+                          .arg(selectedOrder->device().model())
+                          .arg(selectedOrder->currentStatus())
+                          .arg(selectedOrder->createdAt().toString("dd.MM.yyyy HH:mm"))
+                          .arg(partsHtml)
+                          .arg(QString::number(total, 'f', 2))
+                          .arg(QString::number(total * 0.1, 'f', 2))
+                          .arg(QString::number(total * 1.1, 'f', 2));
 
     QDialog dialog(nullptr);
     dialog.setWindowTitle("Счёт на оплату");
-    dialog.resize(500, 400);
+    dialog.resize(650, 600);
 
     QVBoxLayout layout(&dialog);
     QTextEdit textEdit;
     textEdit.setReadOnly(true);
-    textEdit.setFont(QFont("Monospace", 12));
-    textEdit.setText(invoice);
+    textEdit.setFont(QFont("Arial", 10));
+    textEdit.setStyleSheet("background: #121212; color: white;");
+    textEdit.setHtml(invoice);
     layout.addWidget(&textEdit);
 
-    QPushButton okBtn("OK");
-    layout.addWidget(&okBtn);
-    QObject::connect(&okBtn, &QPushButton::clicked, &dialog, &QDialog::accept);
+    QHBoxLayout* btnLayout = new QHBoxLayout();
+    QPushButton* closeBtn = new QPushButton("Закрыть");
+    QPushButton* savePdfBtn = new QPushButton("Сохранить как PDF");
+    btnLayout->addStretch();
+    btnLayout->addWidget(closeBtn);
+    btnLayout->addWidget(savePdfBtn);
+    layout.addLayout(btnLayout);
+
+    QObject::connect(closeBtn, &QPushButton::clicked, &dialog, &QDialog::accept);
+
+    QObject::connect(savePdfBtn, &QPushButton::clicked, [&]() {
+        QString filePath = QFileDialog::getSaveFileName(
+            &dialog,
+            "Сохранить счёт как PDF",
+            "счёт_" + selectedOrder->id() + ".pdf",
+            "PDF (*.pdf)"
+            );
+        if (filePath.isEmpty()) return;
+
+        QPrinter printer(QPrinter::HighResolution);
+        printer.setOutputFormat(QPrinter::PdfFormat);
+        printer.setOutputFileName(filePath);
+        printer.setPageSize(QPageSize(QPageSize::A4));
+        printer.setPageMargins(QMarginsF(20, 20, 20, 20), QPageLayout::Millimeter);
+
+        QTextDocument doc;
+        doc.setHtml(invoice);
+
+        QFont font = doc.defaultFont();
+        font.setPointSize(16);
+        doc.setDefaultFont(font);
+
+        QPainter painter(&printer);
+        painter.scale(1.5, 1.5);
+
+        doc.drawContents(&painter);
+
+        QMessageBox::information(&dialog, "Успех", "Счёт сохранён как PDF");
+    });
 
     dialog.exec();
 }
