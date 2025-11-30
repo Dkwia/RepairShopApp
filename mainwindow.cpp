@@ -64,6 +64,13 @@ MainWindow::MainWindow(User::Role role, const QString& username, QWidget *parent
         setupManagerView();
     }
 
+    ui->tableParts->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    ui->tableParts->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
+    ui->tableParts->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Fixed);
+    ui->tableParts->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Fixed);
+    ui->tableParts->setColumnWidth(0, 100);
+    ui->tableParts->setColumnWidth(2, 80);
+    ui->tableParts->setColumnWidth(3, 100);
     QTableWidget* partsTable = ui->tableParts;
     partsTable->setRowCount(0);
     auto& parts = DataStorage::instance().parts();
@@ -112,8 +119,23 @@ void MainWindow::updateOrdersList() {
 
     int row = 0;
     for (const auto& order : orders) {
-        if (m_role == User::Client && order.clientId() != m_username)
-            continue;
+        if (m_role == User::Client) {
+            table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+            table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Fixed);
+            table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Fixed);
+            table->setColumnWidth(1, 100);
+            table->setColumnWidth(2, 120);
+        } else {
+            table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
+            table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
+            table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Fixed);
+            table->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Fixed);
+            table->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Fixed);
+            table->setColumnWidth(0, 80);
+            table->setColumnWidth(1, 120);
+            table->setColumnWidth(3, 100);
+            table->setColumnWidth(4, 120);
+        }
 
         table->insertRow(row);
 
