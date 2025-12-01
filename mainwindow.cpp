@@ -291,9 +291,10 @@ void MainWindow::on_btnNewOrder_clicked() {
 
     layout.addRow("Модель:", modelCombo);
 
-    QLineEdit issue;
-    issue.setPlaceholderText("Опишите неисправность");
-    layout.addRow("Неисправность:", &issue);
+    QTextEdit* issueEdit = new QTextEdit();
+    issueEdit->setPlaceholderText("Опишите неисправность подробно:\n• Что не работает?\n• Когда началось?\n• Были ли попытки ремонта?");
+    issueEdit->setMinimumHeight(100);
+    layout.addRow("Неисправность:", issueEdit);
 
     QPushButton okBtn("Создать");
     QPushButton cancelBtn("Отмена");
@@ -310,7 +311,8 @@ void MainWindow::on_btnNewOrder_clicked() {
         return;
     }
 
-    if (issue.text().trimmed().isEmpty()) {
+    QString issueText = issueEdit->toPlainText().trimmed();
+    if (issueText.isEmpty()) {
         QMessageBox::warning(nullptr, "Ошибка", "Опишите неисправность");
         return;
     }
@@ -320,7 +322,7 @@ void MainWindow::on_btnNewOrder_clicked() {
     Device::Type type = static_cast<Device::Type>(deviceType.currentIndex());
     Device device(type, model);
 
-    RepairOrder order(id, m_username, device, issue.text().trimmed());
+    RepairOrder order(id, m_username, device, issueText);
     orders.append(order);
     DataStorage::instance().save();
 
