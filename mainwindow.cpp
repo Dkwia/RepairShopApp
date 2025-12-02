@@ -783,26 +783,45 @@ void MainWindow::on_btnAssignParts_clicked() {
     dialog.setWindowTitle("Назначить запчасти на заказ " + orderId);
     dialog.resize(500, 400);
 
-    QVBoxLayout* layout = new QVBoxLayout(&dialog); 
+    QVBoxLayout* layout = new QVBoxLayout(&dialog);
 
-    QTableWidget* partsTable = new QTableWidget(&dialog); 
-    partsTable->setColumnCount(4);
-    partsTable->setHorizontalHeaderLabels({"Артикул", "Наименование", "Остаток", "Назначить"});
+    QHBoxLayout* searchLayout = new QHBoxLayout();
+    QLineEdit* searchEdit = new QLineEdit();
+    searchEdit->setPlaceholderText("Поиск по артикулу или наименованию...");
+    searchLayout->addWidget(searchEdit);
+    layout->addLayout(searchLayout);
+
+    QTableWidget* partsTable = new QTableWidget(&dialog);
+    partsTable->setColumnCount(5);
+    partsTable->setHorizontalHeaderLabels({"Артикул", "Наименование", "Остаток", "Назначено", "Назначить"});
     partsTable->horizontalHeader()->setStretchLastSection(true);
 
     auto& parts = DataStorage::instance().parts();
     partsTable->setRowCount(parts.size());
+
     for (int i = 0; i < parts.size(); ++i) {
         const Part& p = parts[i];
         partsTable->setItem(i, 0, new QTableWidgetItem(p.article()));
         partsTable->setItem(i, 1, new QTableWidgetItem(p.name()));
         partsTable->setItem(i, 2, new QTableWidgetItem(QString::number(p.quantity())));
+
+        int assigned = 0;
+        for (const Part& used : targetOrder->usedParts()) {
+            if (used.article() == p.article()) {
+                assigned = used.quantity();
+                break;
+            }
+        }
+        partsTable->setItem(i, 3, new QTableWidgetItem(QString::number(assigned)));
+
         QSpinBox* spin = new QSpinBox();
-        spin->setRange(0, p.quantity());
+        spin->setRange(0, p.quantity() - assigned);
         spin->setValue(0);
-        partsTable->setCellWidget(i, 3, spin);
+        partsTable->setCellWidget(i, 4, spin);
     }
 
+    partsTable->setSortingEnabled(true);
+    partsTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
     layout->addWidget(partsTable);
 
     QHBoxLayout* btnLayout = new QHBoxLayout();
@@ -813,6 +832,20 @@ void MainWindow::on_btnAssignParts_clicked() {
     btnLayout->addWidget(cancelBtn);
     layout->addLayout(btnLayout);
 
+    QObject::connect(searchEdit, &QLineEdit::textChanged, [&](const QString& text) {
+        for (int i = 0; i < partsTable->rowCount(); ++i) {
+            bool show = false;
+            for (int j = 0; j < 2; ++j) {
+                auto* item = partsTable->item(i, j);
+                if (item && item->text().contains(text, Qt::CaseInsensitive)) {
+                    show = true;
+                    break;
+                }
+            }
+            partsTable->setRowHidden(i, !show);
+        }
+    });
+
     QObject::connect(cancelBtn, &QPushButton::clicked, &dialog, &QDialog::reject);
     QObject::connect(okBtn, &QPushButton::clicked, &dialog, &QDialog::accept);
 
@@ -820,13 +853,27 @@ void MainWindow::on_btnAssignParts_clicked() {
 
     bool anyAssigned = false;
     for (int i = 0; i < parts.size(); ++i) {
-        QSpinBox* spin = qobject_cast<QSpinBox*>(partsTable->cellWidget(i, 3));
-        if (spin && spin->value() > 0) {
-            const Part& p = parts[i];
-            Part assignedPart(p.article(), p.name(), spin->value(), p.price());
-            targetOrder->usePart(assignedPart);
-            anyAssigned = true;
+        QSpinBox* spin = qobject_cast<QSpinBox*>(partsTable->cellWidget(i, 4));
+        if (!spin || spin->value() == 0) continue;
+
+        const Part& stockPart = parts[i];
+        int newQuantity = spin->value();
+
+        bool updated = false;
+        for (Part& used : targetOrder->usedPartsRef()) {
+            if (used.article() == stockPart.article()) {
+                used.setQuantity(newQuantity);
+                updated = true;
+                break;
+            }
         }
+
+        if (!updated) {
+            Part newPart(stockPart.article(), stockPart.name(), newQuantity, stockPart.price());
+            targetOrder->usePart(newPart);
+        }
+
+        anyAssigned = true;
     }
 
     if (anyAssigned) {

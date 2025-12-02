@@ -25,6 +25,7 @@ public:
     QDateTime createdAt() const;
     QList<Part> usedParts() const;
     void setStrategy(StatusStrategy* strategy);
+    QList<Part>& usedPartsRef() { return m_usedParts; }
     void addObserver(OrderObserver* obs);
     void notifyObservers();
     double calculateTotal() const; // ← новое
