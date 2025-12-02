@@ -32,13 +32,13 @@ MainWindow::MainWindow(User::Role role, const QString& username, QWidget *parent
     m_role(role),
     m_username(username) {
     ui->setupUi(this);
-    connect(ui->tableParts, &QTableWidget::doubleClicked, this, &MainWindow::on_tableParts_doubleClicked);
+
     setWindowTitle(QString("Ремонтная мастерская — %1 (%2)")
                        .arg(username)
                        .arg(role == User::Client ? "Клиент" : "Менеджер"));
 
+    connect(ui->tableParts, &QTableWidget::doubleClicked, this, &MainWindow::on_tableParts_doubleClicked);
     updateOrdersList();
-
 
     if (m_role == User::Client) {
         m_clientNotifier = new ClientNotifier(m_username, this);
@@ -128,6 +128,9 @@ void MainWindow::updateOrdersList() {
 
     int row = 0;
     for (const auto& order : orders) {
+        if (m_role == User::Client && order.clientId() != m_username) {
+            continue;
+        }
         if (m_role == User::Client) {
             table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
             table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Fixed);

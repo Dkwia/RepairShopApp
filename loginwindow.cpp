@@ -40,7 +40,7 @@ void LoginWindow::on_loginButton_clicked() {
     auto& users = DataStorage::instance().users();
     for (const User& user : users) {
         if (user.login() == login && user.password() == password) {
-            m_username = login;
+m_username = login.trimmed();
             m_role = user.role();
             accept();
             return;
