@@ -789,7 +789,7 @@ void MainWindow::on_btnAssignParts_clicked() {
 
     QDialog dialog(this);
     dialog.setWindowTitle("Назначить запчасти на заказ " + orderId);
-    dialog.resize(500, 400);
+    dialog.resize(800, 600);
 
     QVBoxLayout* layout = new QVBoxLayout(&dialog);
 
