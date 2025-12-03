@@ -96,6 +96,14 @@ MainWindow::MainWindow(User::Role role, const QString& username, QWidget *parent
     ui->tableParts->setAlternatingRowColors(true);
     connect(ui->tableMyOrders, &QTableWidget::doubleClicked, this, &MainWindow::onOrderDoubleClicked);
     connect(ui->tableAllOrders, &QTableWidget::doubleClicked, this, &MainWindow::onOrderDoubleClicked);
+    ui->tableMyOrders->setContextMenuPolicy(Qt::CustomContextMenu);
+    ui->tableAllOrders->setContextMenuPolicy(Qt::CustomContextMenu);
+
+    connect(ui->tableMyOrders, &QTableWidget::customContextMenuRequested,
+            this, &MainWindow::on_table_customContextMenuRequested);
+
+    connect(ui->tableAllOrders, &QTableWidget::customContextMenuRequested,
+            this, &MainWindow::on_table_customContextMenuRequested);
 }
 
 MainWindow::~MainWindow() {
@@ -949,4 +957,83 @@ void MainWindow::onOrderDoubleClicked(const QModelIndex &index) {
     connect(closeBtn, &QPushButton::clicked, &dialog, &QDialog::accept);
 
     dialog.exec();
+}
+
+void MainWindow::on_table_customContextMenuRequested(const QPoint& pos) {
+    QTableWidget* table = qobject_cast<QTableWidget*>(sender());
+    if (!table) return;
+
+    auto selectedRows = table->selectedRanges();
+    if (selectedRows.isEmpty()) return;
+
+    QMenu menu(this);
+    QAction* exportSelectedAction = menu.addAction("Экспортировать выбранное");
+    connect(exportSelectedAction, &QAction::triggered, [=]() {
+        exportSelectedOrders(table);
+    });
+
+    menu.exec(table->viewport()->mapToGlobal(pos));
+}
+
+void MainWindow::exportSelectedOrders(QTableWidget* table) {
+    auto selectedRows = table->selectedRanges();
+    if (selectedRows.isEmpty()) {
+        QMessageBox::warning(this, "Ошибка", "Выберите строки для экспорта");
+        return;
+    }
+
+    QString filePath = QFileDialog::getSaveFileName(
+        nullptr, "Экспорт выбранных заказов", "", "CSV (*.csv)"
+        );
+    if (filePath.isEmpty()) return;
+    if (!filePath.endsWith(".csv")) filePath += ".csv";
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        qDebug() << "Ошибка создания файла:" << file.errorString();
+        return;
+    }
+
+    QTextStream out(&file);
+    out.setGenerateByteOrderMark(true);
+    out << "\"ID\",\"Клиент\",\"Устройство\",\"Неисправность\",\"Статус\",\"Дата создания\"\n";
+
+    for (const auto& range : selectedRows) {
+        for (int row = range.topRow(); row <= range.bottomRow(); ++row) {
+            QTableWidgetItem* deviceItem = nullptr;
+            if (m_role == User::Client) {
+                deviceItem = table->item(row, 0);
+            } else {
+                deviceItem = table->item(row, 2);
+            }
+
+            if (!deviceItem) continue;
+
+            QString orderId = deviceItem->data(Qt::UserRole).toString();
+            if (orderId.isEmpty()) continue;
+
+            RepairOrder* order = nullptr;
+            for (auto& o : DataStorage::instance().orders()) {
+                if (o.id() == orderId) {
+                    order = &o;
+                    break;
+                }
+            }
+
+            if (!order) continue;
+
+            QString line = QString("\"%1\",\"%2\",\"%3 (%4)\",\"%5\",\"%6\",\"%7\"")
+                               .arg(order->id())
+                               .arg(order->clientId())
+                               .arg(order->device().typeName())
+                               .arg(order->device().model())
+                               .arg(order->issue())
+                               .arg(order->currentStatus())
+                               .arg(order->createdAt().toString("yyyy-MM-dd HH:mm"));
+            out << line << "\n";
+        }
+    }
+
+    file.close();
+    qDebug() << "Экспорт завершён:" << filePath;
 }

@@ -27,7 +27,9 @@ signals:
 private slots:
     void onOrderDoubleClicked(const QModelIndex &index);
     void on_btnChangeStatus_clicked();
+    void on_table_customContextMenuRequested(const QPoint& pos);
     void on_btnNewOrder_clicked();
+    void exportSelectedOrders(QTableWidget* table);
     void on_actionExportHistory_triggered();
     void on_btnInvoice_clicked();
     void on_btnLogout_clicked();
