@@ -143,8 +143,8 @@ void MainWindow::updateOrdersList() {
             table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
             table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Fixed);
             table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Fixed);
-            table->setColumnWidth(1, 100);
-            table->setColumnWidth(2, 120);
+            table->setColumnWidth(1, 140);
+            table->setColumnWidth(2, 140);
         } else {
             table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
             table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
@@ -153,7 +153,7 @@ void MainWindow::updateOrdersList() {
             table->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Fixed);
             table->setColumnWidth(0, 80);
             table->setColumnWidth(1, 120);
-            table->setColumnWidth(3, 100);
+            table->setColumnWidth(3, 140);
             table->setColumnWidth(4, 120);
         }
 
@@ -175,7 +175,9 @@ void MainWindow::updateOrdersList() {
                 statusWithEmoji = "✅ Готов";
             } else if (order.currentStatus() == "Выдан") {
                 statusWithEmoji = "🤝 Выдан";
-            }
+            }else if (statusWithEmoji == "В обработке") {
+        statusWithEmoji = "🕒 В обработке";
+    }
             table->setItem(row, 1, new QTableWidgetItem(statusWithEmoji));
             QTableWidgetItem* dateItem = new QTableWidgetItem(order.createdAt().toString("dd.MM.yyyy"));
             dateItem->setData(Qt::EditRole, order.createdAt().toString("yyyy-MM-dd"));
@@ -193,7 +195,9 @@ void MainWindow::updateOrdersList() {
                 statusWithEmoji = "✅ Готов";
             } else if (order.currentStatus() == "Выдан") {
                 statusWithEmoji = "🤝 Выдан";
-            }
+            }else if (statusWithEmoji == "В обработке") {
+        statusWithEmoji = "🕒 В обработке";
+    }
             table->setItem(row, 3, new QTableWidgetItem(statusWithEmoji));
             QTableWidgetItem* dateItem = new QTableWidgetItem(order.createdAt().toString("dd.MM.yyyy"));
             dateItem->setData(Qt::EditRole, order.createdAt().toString("yyyy-MM-dd"));
@@ -234,7 +238,7 @@ void MainWindow::on_btnChangeStatus_clicked() {
     dialog.setWindowTitle("Изменить статус");
     QFormLayout layout(&dialog);
     QComboBox combo;
-    combo.addItems({"Принят", "В работе", "Готов", "Выдан"});
+    combo.addItems({"Принят", "В работе", "Готов", "Выдан", "В обработке"});
     combo.setCurrentText(targetOrder->currentStatus());
     layout.addRow("Новый статус:", &combo);
 
@@ -253,6 +257,7 @@ void MainWindow::on_btnChangeStatus_clicked() {
     else if (newStatus == "В работе") newStrategy = new InProgressStrategy();
     else if (newStatus == "Готов") newStrategy = new ReadyStrategy();
     else if (newStatus == "Выдан") newStrategy = new IssuedStrategy();
+    else if (newStatus == "В обработке") newStrategy = new WaitingStrategy();
 
     if (newStrategy) {
         targetOrder->setStrategy(newStrategy);
@@ -584,6 +589,8 @@ void MainWindow::generateInvoiceForSelectedOrder(QTableWidget* table)
         statusWithEmoji = "✅ Готов";
     } else if (statusWithEmoji == "Выдан") {
         statusWithEmoji = "🤝 Выдан";
+    } else if (statusWithEmoji == "В обработке") {
+        statusWithEmoji = "🕒 В обработке";
     }
     QString invoice = invoiceTemplate
                           .arg(selectedOrder->createdAt().toString("dd.MM.yyyy"))
@@ -695,10 +702,10 @@ void MainWindow::on_tableParts_doubleClicked(const QModelIndex &index) {
 
     QString article = item->text();
     auto& parts = DataStorage::instance().parts();
+     bool ok;
     for (auto& part : parts) {
         if (part.article() == article) {
-            bool ok;
-            double newPrice = QInputDialog::getDouble(
+                       double newPrice = QInputDialog::getDouble(
                 this,
                 "Изменить цену",
                 "Новая цена (₽):",

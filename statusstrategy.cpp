@@ -4,6 +4,11 @@
 #include <QDebug>
 #include <QMessageBox>
 
+
+void WaitingStrategy::handle(RepairOrder* order) {
+    order->notifyObservers();
+}
+
 void AcceptedStrategy::handle(RepairOrder* order) {
     order->notifyObservers();
 }

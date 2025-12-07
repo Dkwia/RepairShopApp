@@ -11,6 +11,13 @@ public:
     virtual void handle(RepairOrder* order) = 0;
 };
 
+
+class WaitingStrategy : public StatusStrategy {
+public:
+    QString statusName() const override { return "В обработке"; }
+    void handle(RepairOrder* order) override;
+};
+
 class AcceptedStrategy : public StatusStrategy {
 public:
     QString statusName() const override { return "Принят"; }

@@ -91,7 +91,7 @@ void DataStorage::load() {
             else if (status == "В работе") strat = new InProgressStrategy();
             else if (status == "Готов")    strat = new ReadyStrategy();
             else if (status == "Выдан")    strat = new IssuedStrategy();
-            else                           strat = new AcceptedStrategy();
+            else                           strat = new WaitingStrategy();
 
             order.setStrategy(strat);
             // m_orders.append(order);

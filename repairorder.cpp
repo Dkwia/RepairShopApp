@@ -16,7 +16,7 @@ RepairOrder::RepairOrder(const QString& id, const QString& clientId,
     , m_createdAt(QDateTime::currentDateTime())
     , m_strategy(nullptr)
 {
-    setStrategy(new AcceptedStrategy());
+    setStrategy(new WaitingStrategy());
 }
 
 /*RepairOrde/*r::RepairOrder(RepairOrder&& other) noexcept
