@@ -117,6 +117,7 @@ void MainWindow::setupClientView() {
 }
 
 void MainWindow::setupManagerView() {
+    ui->tabWidget->removeTab(ui->tabWidget->indexOf(ui->tabMyOrders));
 }
 
 void MainWindow::updateOrdersList() {
@@ -1043,4 +1044,37 @@ void MainWindow::exportSelectedOrders(QTableWidget* table) {
 
     file.close();
     qDebug() << "Экспорт завершён:" << filePath;
+}
+
+void MainWindow::on_btnDeleteOrder_clicked() {
+    if (m_role != User::Manager) return;
+
+    QTableWidget* table = ui->tableAllOrders;
+    auto sel = table->selectedRanges();
+    if (sel.isEmpty()) {
+        QMessageBox::warning(this, "Ошибка", "Выберите заказ для удаления");
+        return;
+    }
+
+    int row = sel.first().topRow();
+    QString orderId = table->item(row, 0)->text();
+
+    QMessageBox::StandardButton reply;
+    reply = QMessageBox::question(this, "Подтверждение",
+                                  QString("Вы действительно хотите удалить заказ %1?").arg(orderId),
+                                  QMessageBox::Yes | QMessageBox::No);
+    if (reply != QMessageBox::Yes) return;
+
+    auto& orders = DataStorage::instance().orders();
+    for (auto it = orders.begin(); it != orders.end(); ++it) {
+        if (it->id() == orderId) {
+            orders.erase(it);
+            break;
+        }
+    }
+
+    DataStorage::instance().save();
+    updateOrdersList();
+
+    QMessageBox::information(this, "Успех", "Заказ удалён");
 }

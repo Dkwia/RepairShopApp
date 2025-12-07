@@ -1,4 +1,5 @@
 .qtcreator/
+*.json
 *.pdf
 build/
 .DS_Store

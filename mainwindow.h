@@ -28,6 +28,7 @@ private slots:
     void onOrderDoubleClicked(const QModelIndex &index);
     void on_btnChangeStatus_clicked();
     void on_table_customContextMenuRequested(const QPoint& pos);
+    void on_btnDeleteOrder_clicked();
     void on_btnNewOrder_clicked();
     void exportSelectedOrders(QTableWidget* table);
     void on_actionExportHistory_triggered();
