@@ -1,11 +1,13 @@
 #include "loginwindow.h"
 #include "mainwindow.h"
 #include "datastorage.h"
+#include "modelmanager.h"
 #include <QApplication>
 
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
     DataStorage::instance().load();
+    ModelManager::instance().load();
 
     while (true) {
         LoginWindow login;

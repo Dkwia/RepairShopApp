@@ -29,6 +29,10 @@ private slots:
     void on_btnChangeStatus_clicked();
     void on_table_customContextMenuRequested(const QPoint& pos);
     void on_btnDeleteOrder_clicked();
+    void loadModelsTable();
+    void on_searchModels_textChanged(const QString &text);
+    void on_searchParts_textChanged(const QString &text);
+    void on_tabWidget_currentChanged(int index);
     void on_btnNewOrder_clicked();
     void exportSelectedOrders(QTableWidget* table);
     void on_actionExportHistory_triggered();
@@ -37,6 +41,8 @@ private slots:
     void on_btnExportMyOrders_clicked();
     void on_btnExportAllOrders_clicked();
     void on_btnAddPart_clicked();
+    void on_btnAddModel_clicked();
+    void on_btnRemoveModel_clicked();
     void on_btnRemovePart_clicked();
     void on_btnInvoice_2_clicked();
     void on_btnAssignParts_clicked();

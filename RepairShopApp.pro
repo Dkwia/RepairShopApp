@@ -8,6 +8,7 @@ SOURCES += \
     main.cpp \
     mainwindow.cpp \
     loginwindow.cpp \
+    modelmanager.cpp \
     user.cpp \
     device.cpp \
     part.cpp \
@@ -21,6 +22,7 @@ HEADERS += \
     clientnotifier.h \
     mainwindow.h \
     loginwindow.h \
+    modelmanager.h \
     user.h \
     device.h \
     part.h \

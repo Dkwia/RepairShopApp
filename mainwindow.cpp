@@ -5,6 +5,7 @@
 #include <QHBoxLayout>
 #include <QComboBox>
 #include <QDialog>
+#include "modelmanager.h"
 #include <QFormLayout>
 #include <QComboBox>
 #include <QLineEdit>
@@ -76,6 +77,11 @@ MainWindow::MainWindow(User::Role role, const QString& username, QWidget *parent
     ui->tableParts->setColumnWidth(0, 100);
     ui->tableParts->setColumnWidth(2, 80);
     ui->tableParts->setColumnWidth(3, 100);
+    ui->tableModels->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Fixed);
+    ui->tableModels->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
+    ui->tableModels->setColumnWidth(0, 160);
+    ui->tableModels->setColumnWidth(1, 100);
+
     QTableWidget* partsTable = ui->tableParts;
     partsTable->setRowCount(0);
     auto& parts = DataStorage::instance().parts();
@@ -92,6 +98,7 @@ MainWindow::MainWindow(User::Role role, const QString& username, QWidget *parent
         partsTable->setItem(i, 3, priceItem);
     }
 
+
     ui->tableParts->setSortingEnabled(true);
     ui->tableParts->setAlternatingRowColors(true);
     connect(ui->tableMyOrders, &QTableWidget::doubleClicked, this, &MainWindow::onOrderDoubleClicked);
@@ -104,6 +111,17 @@ MainWindow::MainWindow(User::Role role, const QString& username, QWidget *parent
 
     connect(ui->tableAllOrders, &QTableWidget::customContextMenuRequested,
             this, &MainWindow::on_table_customContextMenuRequested);
+    if (role == User::Manager) {
+        loadModelsTable();
+    } else {
+        ui->tabWidget->removeTab(ui->tabWidget->indexOf(ui->tabModels));
+    }
+    connect(ui->searchModelsEdit, &QLineEdit::textChanged,
+            this, &MainWindow::on_searchModels_textChanged);
+    connect(ui->tabWidget, &QTabWidget::currentChanged,
+            this, &MainWindow::on_tabWidget_currentChanged);
+    connect(ui->searchPartsEdit, &QLineEdit::textChanged,
+            this, &MainWindow::on_searchParts_textChanged);
 }
 
 MainWindow::~MainWindow() {
@@ -285,21 +303,18 @@ void MainWindow::on_btnNewOrder_clicked() {
     QComboBox* modelCombo = new QComboBox();
     modelCombo->setEditable(true);
     modelCombo->setPlaceholderText("Выберите или введите модель");
-
+    modelCombo->setCurrentText("");
     auto updateModelList = [&](int deviceIndex) {
         modelCombo->clear();
-        if (deviceIndex == Device::Laptop) {
-            modelCombo->addItems({"HP Pavilion 15", "Dell Latitude 5420", "MacBook Air M2", "Lenovo ThinkPad X1"});
-        } else if (deviceIndex == Device::Phone) {
-            modelCombo->addItems({"iPhone 13", "Samsung Galaxy S21", "Xiaomi Redmi Note 12", "Google Pixel 6"});
-        } else if (deviceIndex == Device::Tablet) {
-            modelCombo->addItems({"iPad Pro 11\"", "Samsung Galaxy Tab S8", "Huawei MatePad Pro", "Amazon Fire HD 10"});
+
+        auto models = ModelManager::instance().getModels(deviceIndex);
+        for (const auto& model : models) {
+            modelCombo->addItem(model.name);
         }
         modelCombo->setCurrentText("");
     };
 
     updateModelList(Device::Laptop);
-
     QObject::connect(&deviceType, QOverload<int>::of(&QComboBox::currentIndexChanged),
                      [&](int index) {
                          updateModelList(index);
@@ -323,7 +338,7 @@ void MainWindow::on_btnNewOrder_clicked() {
     if (dialog.exec() != QDialog::Accepted) return;
 
     QString model = modelCombo->currentText().trimmed();
-    if (model.isEmpty()) {
+    if (model.isEmpty() || model == "Выберите модель...") {
         QMessageBox::warning(nullptr, "Ошибка", "Укажите модель устройства");
         return;
     }
@@ -332,6 +347,21 @@ void MainWindow::on_btnNewOrder_clicked() {
     if (issueText.isEmpty()) {
         QMessageBox::warning(nullptr, "Ошибка", "Опишите неисправность");
         return;
+    }
+
+    if (model != "Другая модель") {
+        int deviceTypeIndex = deviceType.currentIndex();
+        bool exists = false;
+        auto existingModels = ModelManager::instance().getModels(deviceTypeIndex);
+        for (const auto& m : existingModels) {
+            if (m.name == model) {
+                exists = true;
+                break;
+            }
+        }
+        if (!exists) {
+            ModelManager::instance().addModel(model, deviceTypeIndex);
+        }
     }
 
     auto& orders = DataStorage::instance().orders();
@@ -1076,5 +1106,119 @@ void MainWindow::on_btnDeleteOrder_clicked() {
     DataStorage::instance().save();
     updateOrdersList();
 
-    QMessageBox::information(this, "Успех", "Заказ удалён");
+    QMessageBox::information(this, "Успешно", "Заказ удалён");
+}
+
+void MainWindow::loadModelsTable() {
+    QTableWidget* table = ui->tableModels;
+    table->setRowCount(0);
+
+    auto models = ModelManager::instance().getModels(-1);
+    table->setRowCount(models.size());
+
+    for (int i = 0; i < models.size(); ++i) {
+        const auto& m = models[i];
+        table->setItem(i, 0, new QTableWidgetItem(m.name));
+        QString typeName;
+        switch (m.type) {
+        case Device::Laptop: typeName = "Ноутбук"; break;
+        case Device::Phone:  typeName = "Телефон"; break;
+        case Device::Tablet: typeName = "Планшет"; break;
+        default: typeName = "Неизвестно";
+        }
+        table->setItem(i, 1, new QTableWidgetItem(typeName));
+    }
+
+    table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+    table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Fixed);
+    table->setColumnWidth(1, 120);
+}
+
+void MainWindow::on_tabWidget_currentChanged(int index) {
+    if (ui->tabWidget->widget(index) == ui->tabModels) {
+        loadModelsTable();
+    } else if (ui->tabWidget->widget(index) == ui->tabParts) {
+    }
+}
+
+void MainWindow::on_btnAddModel_clicked() {
+    QDialog dialog(this);
+    dialog.setWindowTitle("Добавить модель");
+    QFormLayout layout(&dialog);
+
+    QLineEdit nameEdit;
+    QComboBox typeCombo;
+    typeCombo.addItems({"Ноутбук", "Телефон", "Планшет"});
+
+    layout.addRow("Название:", &nameEdit);
+    layout.addRow("Тип:", &typeCombo);
+
+    QPushButton ok("Добавить");
+    QPushButton cancel("Отмена");
+    layout.addRow(&ok, &cancel);
+
+    QObject::connect(&cancel, &QPushButton::clicked, &dialog, &QDialog::reject);
+    QObject::connect(&ok, &QPushButton::clicked, &dialog, &QDialog::accept);
+
+    if (dialog.exec() != QDialog::Accepted) return;
+
+    QString name = nameEdit.text().trimmed();
+    if (name.isEmpty()) return;
+
+    int type = typeCombo.currentIndex();
+    ModelManager::instance().addModel(name, type);
+    loadModelsTable();
+}
+
+void MainWindow::on_btnRemoveModel_clicked() {
+    QTableWidget* table = ui->tableModels;
+    auto sel = table->selectedRanges();
+    if (sel.isEmpty()) {
+        QMessageBox::warning(this, "Ошибка", "Выберите модель");
+        return;
+    }
+
+    int row = sel.first().topRow();
+    QString name = table->item(row, 0)->text();
+    QString typeStr = table->item(row, 1)->text();
+    int type = -1;
+    if (typeStr == "Ноутбук") type = Device::Laptop;
+    else if (typeStr == "Телефон") type = Device::Phone;
+    else if (typeStr == "Планшет") type = Device::Tablet;
+
+    if (type == -1) return;
+
+    ModelManager::instance().removeModel(name, type);
+    loadModelsTable();
+}
+
+void MainWindow::on_searchModels_textChanged(const QString &text) {
+    QTableWidget* table = ui->tableModels;
+    for (int i = 0; i < table->rowCount(); ++i) {
+        bool show = false;
+        auto* nameItem = table->item(i, 0);
+        if (nameItem && nameItem->text().contains(text, Qt::CaseInsensitive)) {
+            show = true;
+        }
+        auto* typeItem = table->item(i, 1);
+        if (!show && typeItem && typeItem->text().contains(text, Qt::CaseInsensitive)) {
+            show = true;
+        }
+        table->setRowHidden(i, !show);
+    }
+}
+
+void MainWindow::on_searchParts_textChanged(const QString &text) {
+    QTableWidget* table = ui->tableParts;
+    for (int i = 0; i < table->rowCount(); ++i) {
+        bool show = false;
+        for (int j = 0; j < 2; ++j) {
+            auto* item = table->item(i, j);
+            if (item && item->text().contains(text, Qt::CaseInsensitive)) {
+                show = true;
+                break;
+            }
+        }
+        table->setRowHidden(i, !show);
+    }
 }
